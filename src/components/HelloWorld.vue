@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
   import UserProfileModal from './Modal.vue'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabase.js'
 import SongsSlider from './SongsSlider.vue'
 
 
