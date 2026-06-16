@@ -10,8 +10,9 @@ const showModal = ref(false)
 onMounted(() => {
   const username = localStorage.getItem('username')
   const avatar = localStorage.getItem('avatar_pic')
+  const isNew = localStorage.getItem('isNew')
 
-  if (!username || !avatar) {
+  if (!username || !avatar || !isNew) {
     showModal.value = true
   }
 })

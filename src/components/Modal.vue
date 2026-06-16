@@ -11,8 +11,11 @@ const emit = defineEmits(['submit'])
 const username = ref('')
 const avatarPic = ref('')
 const errorMessage = ref('')
+const loading = ref(false)
 
 const submit = async () => {
+  if (loading.value) return
+
   errorMessage.value = ''
 
   if (!username.value.trim()) {
@@ -20,70 +23,71 @@ const submit = async () => {
     return
   }
 
-  // Ищем пользователя по username
-  const { data: existingUser, error } = await supabase
-    .from('voters')
-    .select('*')
-    .eq('username', username.value.trim())
-    .maybeSingle()
+  loading.value = true
 
-  if (error) {
-    errorMessage.value = error.message
-    return
-  }
+  try {
+    const { data: existingUser, error } = await supabase
+      .from('voters')
+      .select('*')
+      .eq('username', username.value.trim())
+      .maybeSingle()
 
-  let user
+    if (error) throw error
 
-  // Пользователь уже существует
-  if (existingUser) {
-    user = existingUser
+    let user
 
-    // Если введена новая аватарка — обновляем
-    if (
-      avatarPic.value.trim() &&
-      avatarPic.value !== existingUser.avatar_pic
-    ) {
-      const { data: updatedUser, error: updateError } = await supabase
+    // Пользователь существует
+    if (existingUser) {
+      user = existingUser
+
+      // Обновляем аватар только если введён новый
+      if (
+        avatarPic.value.trim() &&
+        avatarPic.value.trim() !== existingUser.avatar_pic
+      ) {
+        const { data: updatedUser, error: updateError } = await supabase
+          .from('voters')
+          .update({
+            avatar_pic: avatarPic.value.trim(),
+          })
+          .eq('id', existingUser.id)
+          .select()
+          .single()
+
+        if (updateError) throw updateError
+
+        user = updatedUser
+      }
+    } else {
+      // Создаём нового пользователя
+      const { data: newUser, error: insertError } = await supabase
         .from('voters')
-        .update({
-          avatar_pic: avatarPic.value.trim(),
+        .insert({
+          username: username.value.trim(),
+          avatar_pic: avatarPic.value.trim() || null,
         })
-        .eq('id', existingUser.id)
         .select()
         .single()
 
-      if (updateError) {
-        errorMessage.value = updateError.message
-        return
-      }
+      if (insertError) throw insertError
 
-      user = updatedUser
-    }
-  } else {
-    // Создаём нового пользователя
-    const { data: newUser, error: insertError } = await supabase
-      .from('voters')
-      .insert({
-        username: username.value.trim(),
-        avatar_pic: avatarPic.value.trim() || null,
-      })
-      .select()
-      .single()
-
-    if (insertError) {
-      errorMessage.value = insertError.message
-      return
+      user = newUser
     }
 
-    user = newUser
+    // Сохраняем в localStorage
+    localStorage.setItem('voter_id', String(user.id))
+    localStorage.setItem('username', user.username)
+    localStorage.setItem('avatar_pic', user.avatar_pic || '')
+    localStorage.setItem('is_new', 'true')
+
+    emit('submit', user)
+  } catch (error) {
+    console.error(error)
+    errorMessage.value =
+      error?.message || 'Произошла ошибка. Попробуйте ещё раз.'
+  } finally {
+    loading.value = false
   }
-
-  // Сохраняем в localStorage
-  localStorage.setItem('voter_id', user.id)
-  localStorage.setItem('username', user.username)
-  localStorage.setItem('avatar_pic', user.avatar_pic || '')
-
-  emit('submit', user)
 }
 </script>
 
@@ -126,14 +130,22 @@ const submit = async () => {
 >
   {{ errorMessage }}
 </p>
-      <button @click="submit">
-        Continue
-      </button>
+      <button
+  :disabled="loading"
+  @click="submit"
+>
+  {{ loading ? 'Loading...' : 'Continue' }}
+</button>
     </div>
   </div>
 </template>
 
 <style scoped>
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .error {
   color: #ef4444;
   font-size: 14px;
