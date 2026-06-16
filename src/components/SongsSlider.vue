@@ -2,11 +2,13 @@
 import { ref, onMounted } from 'vue'
 import { supabase } from '../lib/supabase.js'
 
-const songs = ref([])
+  const songs = ref([])
 
-const currentVoterId = localStorage.getItem('voter_id')
-const currentUsername = localStorage.getItem('username')
-const currentAvatar = localStorage.getItem('avatar_pic')
+  const currentVoterId = Number(localStorage.getItem('voter_id'))
+  const currentUsername = localStorage.getItem('username')
+  const currentAvatar = localStorage.getItem('avatar_pic')
+
+
 
 const loadSongs = async () => {
   const { data, error } = await supabase
@@ -30,7 +32,13 @@ const loadSongs = async () => {
   songs.value = data || []
 }
 
-const hasVoted = (song) => {
+  const hasVoted = (song) => {
+
+    song.votes?.map((vote) => {
+      console.log(vote.voter_id+ " and "+ currentVoterId);
+      
+    })
+  
   return song.votes?.some(
     vote => vote.voter_id === currentVoterId
   )
