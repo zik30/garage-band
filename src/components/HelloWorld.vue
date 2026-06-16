@@ -1,43 +1,26 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-  import UserProfileModal from './Modal.vue'
-import { supabase } from '../lib/supabase.js'
+import UserProfileModal from './Modal.vue'
 import SongsSlider from './SongsSlider.vue'
-
 
 const showModal = ref(false)
 
 onMounted(() => {
   const username = localStorage.getItem('username')
-  const avatar = localStorage.getItem('avatar_pic')
-  const isNew = localStorage.getItem('isNew')
+  const isNew = localStorage.getItem('is_new')
 
-  if (!username || !avatar || !isNew) {
+  if (!username || isNew !== 'true') {
+    localStorage.removeItem('voter_id')
+    localStorage.removeItem('username')
+    localStorage.removeItem('avatar_pic')
+
     showModal.value = true
   }
 })
 
-  const saveProfile = async ({ username, avatar_pic }) => {
-    const { data, error } = await supabase
-      .from('voters')
-      .insert({
-        username,
-        avatar_pic,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error(error)
-      return
-    }
-
-    localStorage.setItem('username', data.username)
-    localStorage.setItem('avatar_pic', data.avatar_pic)
-    localStorage.setItem('voter_id', data.id)
-
-    showModal.value = false
-  }
+const saveProfile = () => {
+  showModal.value = false
+}
 </script>
 
 <template>
@@ -47,9 +30,8 @@ onMounted(() => {
       @submit="saveProfile"
     />
 
-    <SongsSlider/>
+    <SongsSlider />
   </section>
-
 
   <section id="spacer"></section>
 </template>
