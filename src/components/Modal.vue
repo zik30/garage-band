@@ -1,5 +1,6 @@
-<script setup lang="ts">
+<script setup>
 import { ref } from 'vue'
+import { supabase } from '../lib/supabase'
 
 defineProps({
   isOpen: Boolean,
@@ -9,14 +10,80 @@ const emit = defineEmits(['submit'])
 
 const username = ref('')
 const avatarPic = ref('')
+const errorMessage = ref('')
 
-const submit = () => {
-  if (!username.value.trim()) return
+const submit = async () => {
+  errorMessage.value = ''
 
-  emit('submit', {
-    username: username.value,
-    avatar_pic: avatarPic.value,
-  })
+  if (!username.value.trim()) {
+    errorMessage.value = 'Введите имя пользователя'
+    return
+  }
+
+  // Ищем пользователя по username
+  const { data: existingUser, error } = await supabase
+    .from('voters')
+    .select('*')
+    .eq('username', username.value.trim())
+    .maybeSingle()
+
+  if (error) {
+    errorMessage.value = error.message
+    return
+  }
+
+  let user
+
+  // Пользователь уже существует
+  if (existingUser) {
+    user = existingUser
+
+    // Если введена новая аватарка — обновляем
+    if (
+      avatarPic.value.trim() &&
+      avatarPic.value !== existingUser.avatar_pic
+    ) {
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('voters')
+        .update({
+          avatar_pic: avatarPic.value.trim(),
+        })
+        .eq('id', existingUser.id)
+        .select()
+        .single()
+
+      if (updateError) {
+        errorMessage.value = updateError.message
+        return
+      }
+
+      user = updatedUser
+    }
+  } else {
+    // Создаём нового пользователя
+    const { data: newUser, error: insertError } = await supabase
+      .from('voters')
+      .insert({
+        username: username.value.trim(),
+        avatar_pic: avatarPic.value.trim() || null,
+      })
+      .select()
+      .single()
+
+    if (insertError) {
+      errorMessage.value = insertError.message
+      return
+    }
+
+    user = newUser
+  }
+
+  // Сохраняем в localStorage
+  localStorage.setItem('voter_id', user.id)
+  localStorage.setItem('username', user.username)
+  localStorage.setItem('avatar_pic', user.avatar_pic || '')
+
+  emit('submit', user)
 }
 </script>
 
@@ -53,7 +120,12 @@ const submit = () => {
           alt="Avatar"
         >
       </div>
-
+<p
+  v-if="errorMessage"
+  class="error"
+>
+  {{ errorMessage }}
+</p>
       <button @click="submit">
         Continue
       </button>
@@ -62,6 +134,11 @@ const submit = () => {
 </template>
 
 <style scoped>
+.error {
+  color: #ef4444;
+  font-size: 14px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
